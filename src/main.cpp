@@ -43,8 +43,9 @@ void printLabels(const std::vector<std::size_t> &labels);
 char data_filename[128];
 char feature_libsvmfilename[128];
 int  epoch = 100;
-int nbVisibleUnits = 1323;
-int nbHiddenUnits = 441;
+
+static constexpr const std::size_t Visible = 1323;
+static constexpr const std::size_t Hidden = 441;
 
 int main(int argc, char* argv[]) {
 	if(argc < 2){
@@ -191,7 +192,7 @@ void train_dbn_svm() {
 
     using dbn_t = dll::dbn_desc<
         dll::dbn_label_layers<
-            dll::rbm_desc<1323, 441, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+            dll::rbm_desc<Visible, Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
             //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
             //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
         >
@@ -233,7 +234,7 @@ void train_dbn_svm() {
 
 		// classid 1:value 2:value
 		out << label;
-		for (int i=0; i < 441; i++) {
+		for (std::size_t i=0; i < probs.size(); i++) {
 			out << ' ' << (i+1) << ':' << probs[i];
 		}
 		out << std::endl;
@@ -289,7 +290,7 @@ void svm_predict() {
 	//const int nbFeatures = get_nbcolumns()-1;
     using dbn_t = dll::dbn_desc<
         dll::dbn_label_layers<
-            dll::rbm_desc<1323, 441, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+            dll::rbm_desc<Visible, Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
             //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
             //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
         >
@@ -315,7 +316,7 @@ void svm_predict() {
     for(auto& sample : samples){
         auto probs = dbn->activation_probabilities(sample);
 
-        for (int i=0; i < 441; i++) {
+        for (std::size_t i=0; i < probs.size(); i++) {
 			float feature = probs[i];
 		}
 
