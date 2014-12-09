@@ -8,8 +8,8 @@ using std::endl;
 #define DLL_SVM_SUPPORT
 #define DLL_PARALLEL
 
-#include "dll/rbm.hpp"
 #include "dll/dbn.hpp"
+#include "dll/dyn_dbn.hpp"
 #include "dll/ocv_visualizer.hpp"
 #include "dll/test.hpp"
 
@@ -178,14 +178,19 @@ void rbm_features() {
 void train_dbn_svm(std::size_t V, std::size_t H) {
 	//1. Configure and create the RBM
 
-    using dbn_t = dll::dbn_desc<
-        dll::dbn_label_layers<
-            dll::rbm_desc<Default_Visible, Default_Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
-        >
-        , dll::watcher<dll::opencv_dbn_visualizer> //For visualization
+    using dbn_t = dll::dyn_dbn_desc<
+        dll::dbn_dyn_layers<
+            dll::dyn_rbm_desc<
+                dll::visible<dll::unit_type::GAUSSIAN>,
+                dll::momentum,
+                dll::weight_decay<dll::decay_type::L2>,
+                dll::parallel>::rbm_t
+        >, dll::watcher<dll::opencv_dbn_visualizer> //For visualization
         >::dbn_t;
 
-    auto dbn = std::make_unique<dbn_t>();
+    auto dbn = std::make_unique<dbn_t>(std::make_tuple(V, H));
+
+    dbn->layer<0>().batch_size = 24;
 
 	//parameter tunning
     //dbn->layer<0>().learning_rate = 0.01;
