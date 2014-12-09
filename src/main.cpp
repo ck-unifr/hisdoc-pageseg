@@ -32,7 +32,7 @@ int get_nblines(char* filename);
 int get_nbcolumns(char* filename);
 
 void rbm_features();
-void train_dbn_svm();
+void train_dbn_svm(std::size_t V, std::size_t H);
 void svm_predict();
 void svm_classify();
 int doesFileExist(const char *filename);
@@ -44,52 +44,43 @@ char data_filename[128];
 char feature_libsvmfilename[128];
 int  epoch = 100;
 
-static constexpr const std::size_t Visible = 1323;
-static constexpr const std::size_t Hidden = 441;
+static constexpr const std::size_t Default_Visible = 1323;
+static constexpr const std::size_t Default_Hidden = 441;
 
 int main(int argc, char* argv[]) {
-	if(argc < 2){
-		std::cout << "not enough parameters" << std::endl;
-		return 1;
-	}
+    if(argc < 2){
+        std::cout << "not enough parameters" << std::endl;
+        return 1;
+    }
 
-	// feature file path without extension (e.g., .dat)
-	// example: parzival_test_21_2000
-	sprintf(data_filename, "%s.dat", argv[1]);
-	cout << "data file path: " << data_filename << endl;
+    // feature file path without extension (e.g., .dat)
+    // example: parzival_test_21_2000
+    sprintf(data_filename, "%s.dat", argv[1]);
+    cout << "data file path: " << data_filename << endl;
 
-	sprintf(feature_libsvmfilename, "%s_libsvm", argv[1]);
-	cout << "libsvm feature file path: " << feature_libsvmfilename << endl;
-	//sprintf(feature_libsvmfilename, "%s_%d_%d_libsvm", argv[1], PATCH_SIZE, NB_PATCHES);
+    sprintf(feature_libsvmfilename, "%s_libsvm", argv[1]);
+    cout << "libsvm feature file path: " << feature_libsvmfilename << endl;
+    //sprintf(feature_libsvmfilename, "%s_%d_%d_libsvm", argv[1], PATCH_SIZE, NB_PATCHES);
 
-	if(argc > 2) {
-		epoch = atoi(argv[2]);
-		cout << "#epoch: " << epoch << endl;
+    if(argc > 2) {
+        epoch = atoi(argv[2]);
+    }
 
-		// TODO: get #visible units and #hidden units from your input
-	}
+    std::size_t num_visible = Default_Visible;
+    if(argc > 3) {
+        num_visible = atoi(argv[3]);
+    }
 
-	//Call the function you are interested in and complete it
+    std::size_t num_hidden = Default_Hidden;
+    if(argc > 4) {
+        num_hidden = atoi(argv[4]);
+    }
 
-	//read samples with labels
-	// std::vector<std::vector<T>> samples;
-	// std::vector<std::size_t> labels;
-	// read_data(data_filenam, samples, labels);
+    cout << "#epoch: " << epoch << endl;
+    cout << "#visible: " << num_visible << endl;
+    cout << "#hidden: " << num_hidden << endl;
 
-	//print data
-	//printSamples(samples, 10, 30);
-	//printLabels(labels);
-
-	// train a rbm and visualize the learned features
-	//rbm_features();
-
-	// 1. train rbm with svm
-	train_dbn_svm();
-
-	// 2. use the trained svm for classification
-	//svm_predict();
-
-	//svm_classify();
+    train_dbn_svm(num_visible, num_hidden);
 
     return 0;
 }
@@ -184,17 +175,12 @@ void rbm_features() {
 }
 
 // TODO: get #input units and #hidden units from variables
-void train_dbn_svm() {
+void train_dbn_svm(std::size_t V, std::size_t H) {
 	//1. Configure and create the RBM
-
-	// get #features. #features is considered as #input units
-	// const int nbFeatures = get_nbcolumns(data_filename)-1;
 
     using dbn_t = dll::dbn_desc<
         dll::dbn_label_layers<
-            dll::rbm_desc<Visible, Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
-            //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
-            //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+            dll::rbm_desc<Default_Visible, Default_Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
         >
         , dll::watcher<dll::opencv_dbn_visualizer> //For visualization
         >::dbn_t;
@@ -203,7 +189,6 @@ void train_dbn_svm() {
 
 	//parameter tunning
     //dbn->layer<0>().learning_rate = 0.01;
-
 
     //2. Read dataset
 
@@ -290,7 +275,7 @@ void svm_predict() {
 	//const int nbFeatures = get_nbcolumns()-1;
     using dbn_t = dll::dbn_desc<
         dll::dbn_label_layers<
-            dll::rbm_desc<Visible, Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+            dll::rbm_desc<Default_Visible, Default_Hidden, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
             //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
             //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
         >
@@ -303,11 +288,10 @@ void svm_predict() {
 
 	dbn->load(DBN_SVM_FILE);
 
+    //3. Read dataset
 
-	//3. Read dataset
-
-    std::vector<std::vector<T>> samples;     	   //All the samples
-    std::vector<std::size_t> labels;              //All the labels
+    std::vector<std::vector<T>> samples;     //All the samples
+    std::vector<std::size_t> labels;         //All the labels
 
     read_data(data_filename, samples, labels);
 
