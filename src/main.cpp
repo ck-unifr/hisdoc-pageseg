@@ -100,23 +100,23 @@ int doesFileExist(const char *filename) {
     return result == 0;
 }
 
-void printSamples(const std::vector<std::vector<T>> &samples, const int maxNbSamples, const int maxNbFeatures) {
+void printSamples(const std::vector<std::vector<T>> &samples, const std::size_t maxNbSamples, const std::size_t maxNbFeatures) {
 	cout << "#samples " << samples.size() << endl;
 
-	int sampleSize = samples.size();
+	auto sampleSize = samples.size();
 	if(maxNbSamples > 0) {
 		sampleSize = (samples.size() > maxNbSamples) ? maxNbSamples : samples.size();
 	}
 
-	for (unsigned int j=0; j<sampleSize; j++) {
-		auto vec = samples[j];
+	for (std::size_t j=0; j<sampleSize; j++) {
+		const auto& vec = samples[j];
 
-		int featureSize = vec.size();
+		auto featureSize = vec.size();
 		if(maxNbFeatures > 0) {
 			featureSize = (vec.size() > maxNbFeatures) ? maxNbFeatures : vec.size();
 		}
 
-		for (unsigned int i=0; i<featureSize; i++) {
+		for (std::size_t i=0; i<featureSize; i++) {
 			cout << vec[i] << ' ';
 		}
 		cout << endl;
@@ -435,16 +435,14 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 
 			// read class id
 			std::size_t classNum = 0;
-			fscanf(asc, "%ul", &classNum);
-			//fscanf(asc, "%d", &classNum);
+			fscanf(asc, "%lu", &classNum);
 			labels.push_back(classNum);
 
 			// read features
 			std::vector<T> col;
 			for (int col_num=0; col_num < nb_columns-1; col_num++) {
 				T lf = -1;
-				//fscanf(asc, ",%lf", &lf);
-				int n = fscanf(asc, READ_FEATURE_FORMAT, &lf);
+				fscanf(asc, READ_FEATURE_FORMAT, &lf);
 				col.push_back(lf);
 			}
 
