@@ -46,41 +46,30 @@ int  epoch = 100;
 int nbVisibleUnits = 1323;
 int nbHiddenUnits = 441;
 
-/*
- * The DLL library can be used in two ways:
- * 1. For feature extraction, in which case a RBM (or DBN) is trained on the samples
- *    and the features (probabilities activation) are used for another purpose.
- * 2. For classification. In which case, a DBN is trained on the samples and
- *    fine-tuned with the labels. Fine-tuning can be backpropagation, Conjugate Gradient
- *    or SVM classification on top of the features.
- *
- * For case 1, check rbm_features() function, for case 2, check svm_classify().
- */
-
 int main(int argc, char* argv[]) {
 	if(argc < 2){
 		std::cout << "not enough parameters" << std::endl;
 		return 1;
 	}
-	
+
 	// feature file path without extension (e.g., .dat)
 	// example: parzival_test_21_2000
 	sprintf(data_filename, "%s.dat", argv[1]);
 	cout << "data file path: " << data_filename << endl;
-	
+
 	sprintf(feature_libsvmfilename, "%s_libsvm", argv[1]);
 	cout << "libsvm feature file path: " << feature_libsvmfilename << endl;
 	//sprintf(feature_libsvmfilename, "%s_%d_%d_libsvm", argv[1], PATCH_SIZE, NB_PATCHES);
-	
+
 	if(argc > 2) {
 		epoch = atoi(argv[2]);
 		cout << "#epoch: " << epoch << endl;
-		
+
 		// TODO: get #visible units and #hidden units from your input
 	}
-	
+
 	//Call the function you are interested in and complete it
-	
+
 	//read samples with labels
 	// std::vector<std::vector<T>> samples;
 	// std::vector<std::size_t> labels;
@@ -89,18 +78,18 @@ int main(int argc, char* argv[]) {
 	//print data
 	//printSamples(samples, 10, 30);
 	//printLabels(labels);
-	
+
 	// train a rbm and visualize the learned features
 	//rbm_features();
-	
+
 	// 1. train rbm with svm
 	train_dbn_svm();
-	
+
 	// 2. use the trained svm for classification
 	//svm_predict();
-	
+
 	//svm_classify();
-	
+
     return 0;
 }
 
@@ -112,20 +101,20 @@ int doesFileExist(const char *filename) {
 
 void printSamples(const std::vector<std::vector<T>> &samples, const int maxNbSamples, const int maxNbFeatures) {
 	cout << "#samples " << samples.size() << endl;
-	
+
 	int sampleSize = samples.size();
 	if(maxNbSamples > 0) {
 		sampleSize = (samples.size() > maxNbSamples) ? maxNbSamples : samples.size();
 	}
-	
+
 	for (unsigned int j=0; j<sampleSize; j++) {
 		auto vec = samples[j];
-		
+
 		int featureSize = vec.size();
 		if(maxNbFeatures > 0) {
 			featureSize = (vec.size() > maxNbFeatures) ? maxNbFeatures : vec.size();
 		}
-		
+
 		for (unsigned int i=0; i<featureSize; i++) {
 			cout << vec[i] << ' ';
 		}
@@ -139,7 +128,7 @@ void printLabels(const std::vector<std::size_t> &labels) {
 	//		cout << *p1 << ' ';
 	//}
 	//cout << endl;
-	
+
 	cout << "#labels " << labels.size() << endl;
 	for (unsigned int i=0; i<labels.size(); i++) {
 		cout << labels[i] << endl;
@@ -148,7 +137,7 @@ void printLabels(const std::vector<std::size_t> &labels) {
 
 void rbm_features() {
     //1. Configure and create the RBM
-	
+
 	// get #features
 	//const int nbFeatures = get_nbcolumns()-1;
     using rbm_t = dll::rbm_desc<
@@ -163,7 +152,7 @@ void rbm_features() {
     >::rbm_t;
 
     auto rbm = std::make_unique<rbm_t>();
-    
+
     //rbm->learning_rate = 0.0001;
 
     //rbm->load("file.dat"); //Load from file
@@ -189,17 +178,17 @@ void rbm_features() {
     }
 
 	//5. Store to file
-    //rbm->store("file.dat"); 
+    //rbm->store("file.dat");
     rbm->store(RBM_FILE);
 }
 
-// TODO: get #input units and #hidden units from variables 
+// TODO: get #input units and #hidden units from variables
 void train_dbn_svm() {
 	//1. Configure and create the RBM
 
 	// get #features. #features is considered as #input units
 	// const int nbFeatures = get_nbcolumns(data_filename)-1;
-	
+
     using dbn_t = dll::dbn_desc<
         dll::dbn_label_layers<
             dll::rbm_desc<1323, 441, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
@@ -224,24 +213,24 @@ void train_dbn_svm() {
 
 
     //3. Train the DBN layers for x epochs
-    
+
     std::cout << "DBN pretraining ..."  << std::endl;
-    
+
     dbn->pretrain(samples, epoch);
-    
+
     //3.1. Get the activation probabilities for a sample
     // create a libsvm format file which contains the features (activation probabilities) of the samples
     std::cout << "Output features to libsvm file ..."  << std::endl;
     remove(feature_libsvmfilename);
-    std::ofstream out(feature_libsvmfilename); 
+    std::ofstream out(feature_libsvmfilename);
     std::cout << "libsvm file: " << feature_libsvmfilename  << std::endl;
-    
+
 	for(std::size_t i = 0; i < samples.size(); ++i) {
 		auto& sample = samples[i];
 		auto  label = labels[i];
-		
+
 		auto probs = dbn->activation_probabilities(sample);
-		
+
 		// classid 1:value 2:value
 		out << label;
 		for (int i=0; i < 441; i++) {
@@ -250,25 +239,25 @@ void train_dbn_svm() {
 		out << std::endl;
 	}
 	out.close();
-	
+
     //for(auto& sample : samples){
     //    auto probs = dbn->activation_probabilities(sample);
-       
+
 		 // do something with the extracted features
         // TODO: save the extracted features to libsvm file format
     //}
-    
+
     //4. Train the SVM
 
 	std::cout << "SVM pretraining ..."  << std::endl;
 
 	svm_parameter parameters;
-	
+
 	parameters.svm_type = C_SVC;
     parameters.kernel_type = RBF;
     parameters.C = 2.8;
     parameters.gamma = 0.0073;
-    
+
     parameters.probability = 1;
     parameters.degree = 3;
     parameters.coef0 = 0;
@@ -282,14 +271,14 @@ void train_dbn_svm() {
     parameters.weight = nullptr;
 
     dbn->svm_train(samples, labels, parameters);
-    
+
     //5. Store the DBM and SVM file
 
     //dbn->store("file.dat"); //Store to file
     std::cout << "save DBN and SVM model to: "  << DBN_SVM_FILE << std::endl;
-    
+
     dbn->store(DBN_SVM_FILE);
-    
+
     std::cout << "Done."  << std::endl;
 }
 
@@ -308,51 +297,51 @@ void svm_predict() {
         >::dbn_t;
 
     auto dbn = std::make_unique<dbn_t>();
-    
+
 	// 2. load SVM and DBM model
-	
+
 	dbn->load(DBN_SVM_FILE);
-	
-	
+
+
 	//3. Read dataset
 
     std::vector<std::vector<T>> samples;     	   //All the samples
     std::vector<std::size_t> labels;              //All the labels
 
     read_data(data_filename, samples, labels);
-	
+
 	 //3.1. Get the activation probabilities for a sample
 
     for(auto& sample : samples){
         auto probs = dbn->activation_probabilities(sample);
-        
+
         for (int i=0; i < 441; i++) {
 			float feature = probs[i];
 		}
 
         //Do something with the extracted features
     }
-	
+
 	//4. Compute accuracy on the training set
 
     auto training_error = dll::test_set(dbn, samples, labels, dll::svm_predictor());
-    
+
     std::cout << "Training error: "  << training_error << std::endl;
 
 	int nbMisClassified = 0;
 	for(std::size_t i = 0; i < samples.size(); ++i){
 		auto& sample = samples[i];
 		auto  label = labels[i];
-		
+
 		auto predicted = dbn->svm_predict(sample);
-		
+
 		if(predicted != label) {
 			 std::cout << "mis calssified: "  << i << " predicted: " << predicted << " label: " << label << std::endl;
 			 nbMisClassified++;
 		}
 		//TODO: save prediction results
 	}
-	
+
 	std::cout << "#misclassified samples:" << nbMisClassified << endl;
 }
 
@@ -371,7 +360,7 @@ void svm_classify() {
         >::dbn_t;
 
     auto dbn = std::make_unique<dbn_t>();
-    
+
     //dbn->layer<0>().learning_rate = 0.01;
 
     //dbn->load("file.dat"); //Load from file
@@ -386,7 +375,7 @@ void svm_classify() {
 
     //3. Train the DBN layers for x epochs
 
-    
+
     //dbn->pretrain(samples, epoch);
 
     //4. Train the SVM
@@ -396,15 +385,15 @@ void svm_classify() {
     //5. Compute accuracy on the training set
 
     auto training_error = dll::test_set(dbn, samples, labels, dll::svm_predictor());
-    
+
     std::cout << "Training error: "  << training_error << std::endl;
 
 	for(std::size_t i = 0; i < samples.size(); ++i){
 		auto& sample = samples[i];
 		auto  label = labels[i];
-		
+
 		auto predicted = dbn->svm_predict(sample);
-		
+
 		//TODO
 	}
 
@@ -417,21 +406,21 @@ void svm_classify() {
 
 /*
  * Read samples and labels
- * 
+ *
  * file format:
  * class_id, feature value_1, feature value_2, feature value_3, ..., feature value_n
  */
 void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::vector<std::size_t>& labels) {
-	
+
 	//if(access(DATA_FILE, F_OK) != 1){
 	if (doesFileExist(data_filename)){
-		
+
 		std::cout << "reading " << data_filename  << " ..." << std::endl;
-		
+
 		//Open file
 		FILE* asc = fopen(data_filename, "r");
-		
-		//get number of lines and columns 
+
+		//get number of lines and columns
 		int nb_lines, nb_columns = 0;
 		nb_lines = get_nblines(data_filename);
 		nb_columns = get_nbcolumns(data_filename);
@@ -439,16 +428,16 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 		std::cerr << "Nb columns:" << nb_columns << std::endl;
 		//printf("number of lines in %s = %d \n", DATA_FILE, nb_lines-1);
 		//printf("number of columns in %s = %d \n", DATA_FILE, nb_columns);
-		
+
 		//read samples
 		for (int l=0; l < nb_lines; l++) {
-			
+
 			// read class id
 			std::size_t classNum = 0;
 			fscanf(asc, "%ul", &classNum);
 			//fscanf(asc, "%d", &classNum);
 			labels.push_back(classNum);
-			
+
 			// read features
 			std::vector<T> col;
 			for (int col_num=0; col_num < nb_columns-1; col_num++) {
@@ -457,10 +446,10 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 				int n = fscanf(asc, READ_FEATURE_FORMAT, &lf);
 				col.push_back(lf);
 			}
-			
+
 			samples.push_back(col);
 		}
-		
+
 		fclose(asc);
 
 		std::cout << "Done. " << std::endl;
@@ -468,7 +457,7 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 		std::cout << "Normalizing. " << std::endl;
 		//normalize features to have 0 mean and 1 variance
 		cpp::normalize_each(samples); //For gaussian visible units
-		
+
 		std::cout << "Done. " << std::endl;
 	} else {
 		std::cout << DATA_FILE  << " does not exist." << std::endl;
@@ -487,7 +476,7 @@ int get_nblines(char* filename) {
 
 	// last line doesn't end with a new line!
 	// but there has to be a line at least before the last line
-	if(ch != '\n' && number_of_lines != 0) 
+	if(ch != '\n' && number_of_lines != 0)
 		number_of_lines++;
 
 	fclose(myfile);
