@@ -174,7 +174,6 @@ void rbm_features() {
     rbm->store(RBM_FILE);
 }
 
-// TODO: get #input units and #hidden units from variables
 void train_dbn_svm(std::size_t V, std::size_t H) {
 	//1. Configure and create the RBM
 
