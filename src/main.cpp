@@ -32,7 +32,8 @@ int get_nblines(char* filename);
 int get_nbcolumns(char* filename);
 
 void rbm_features();
-void train_dbn_svm();
+void train_dbn_svm(int train_svm);
+void dbn_features_libsvm();
 void svm_predict();
 void svm_classify();
 int doesFileExist(const char *filename);
@@ -42,9 +43,13 @@ void printLabels(const std::vector<std::size_t> &labels);
 
 char data_filename[128];
 char feature_libsvmfilename[128];
+char dbn_svm_file[128];
 int  epoch = 100;
 int nbVisibleUnits = 1323;
 int nbHiddenUnits = 441;
+// options: 1-dbn svm training 2-dbn svm prediction
+int option = 1;
+int train_svm = 1;
 
 /*
  * The DLL library can be used in two ways:
@@ -58,25 +63,54 @@ int nbHiddenUnits = 441;
  */
 
 int main(int argc, char* argv[]) {
-	if(argc < 2){
+	if(argc < 2) {
 		std::cout << "not enough parameters" << std::endl;
 		return 1;
 	}
+	
+	//parameters: "feature file" "DBN SVM model file" "option" "epoch"
 	
 	// feature file path without extension (e.g., .dat)
 	// example: parzival_test_21_2000
 	sprintf(data_filename, "%s.dat", argv[1]);
 	cout << "data file path: " << data_filename << endl;
 	
+	// create libsvm feature file
 	sprintf(feature_libsvmfilename, "%s_libsvm", argv[1]);
 	cout << "libsvm feature file path: " << feature_libsvmfilename << endl;
 	//sprintf(feature_libsvmfilename, "%s_%d_%d_libsvm", argv[1], PATCH_SIZE, NB_PATCHES);
 	
-	if(argc > 2) {
-		epoch = atoi(argv[2]);
+	
+	// DBN SVM model file
+	sprintf(dbn_svm_file, "%s", argv[2]);
+	cout << "dbn svm model file: " << dbn_svm_file << endl;
+	
+	option = atoi(argv[3]);
+	if(option == 1) {
+		cout << "DBN SVM training" << endl;
+	}
+	else {
+		if(option == 2) {
+			cout << "DBN SVM classification" << endl;
+		} 
+		else {
+			if (option == 3) {
+				cout << "output DBN features to libsvm format file" << endl;
+			}
+		}
+	}
+	
+	if(argc > 4) {
+		// get #epoch for DBN training
+		epoch = atoi(argv[4]);
 		cout << "#epoch: " << epoch << endl;
 		
 		// TODO: get #visible units and #hidden units from your input
+	}
+	
+	if(argc > 5) {
+		// train svm or not
+		train_svm = atoi(argv[5]);
 	}
 	
 	//Call the function you are interested in and complete it
@@ -93,11 +127,22 @@ int main(int argc, char* argv[]) {
 	// train a rbm and visualize the learned features
 	//rbm_features();
 	
-	// 1. train rbm with svm
-	train_dbn_svm();
-	
-	// 2. use the trained svm for classification
-	//svm_predict();
+	if(option == 1) {
+		// 1. train rbm with svm
+		train_dbn_svm(train_svm);
+	} 
+	else {
+		if(option == 2) {
+			// 2. use the trained svm for classification
+			svm_predict();
+		}
+		else {
+			if(option == 3) {
+				//3. output dbn features to libsvm format file
+				dbn_features_libsvm();
+			}
+		}
+	}
 	
 	//svm_classify();
 	
@@ -194,7 +239,7 @@ void rbm_features() {
 }
 
 // TODO: get #input units and #hidden units from variables 
-void train_dbn_svm() {
+void train_dbn_svm(int train_svm) {
 	//1. Configure and create the RBM
 
 	// get #features. #features is considered as #input units
@@ -206,7 +251,7 @@ void train_dbn_svm() {
             //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
             //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
         >
-        , dll::watcher<dll::opencv_dbn_visualizer> //For visualization
+        //, dll::watcher<dll::opencv_dbn_visualizer> //For visualization
         >::dbn_t;
 
     auto dbn = std::make_unique<dbn_t>();
@@ -242,10 +287,10 @@ void train_dbn_svm() {
 		
 		auto probs = dbn->activation_probabilities(sample);
 		
-		// classid 1:value 2:value
+		// classid 1:value 2:value 3:value ...
 		out << label;
-		for (int i=0; i < 441; i++) {
-			out << ' ' << (i+1) << ':' << probs[i];
+		for (int j=0; j < 441; j++) {
+			out << ' ' << (j+1) << ':' << probs[j];
 		}
 		out << std::endl;
 	}
@@ -260,37 +305,97 @@ void train_dbn_svm() {
     
     //4. Train the SVM
 
-	std::cout << "SVM pretraining ..."  << std::endl;
+	if (train_svm == 1) {
+		std::cout << "SVM pretraining ..."  << std::endl;
 
-	svm_parameter parameters;
+		svm_parameter parameters;
+		
+		parameters.svm_type = C_SVC;
+		parameters.kernel_type = RBF;
+		parameters.C = 2.8;
+		parameters.gamma = 0.0073;
+		
+		parameters.probability = 1;
+		parameters.degree = 3;
+		parameters.coef0 = 0;
+		parameters.nu = 0.5;
+		parameters.cache_size = 100;
+		parameters.eps = 1e-3;
+		parameters.p = 0.1;
+		parameters.shrinking = 1;
+		parameters.nr_weight = 0;
+		parameters.weight_label = nullptr;
+		parameters.weight = nullptr;
+
+		dbn->svm_train(samples, labels, parameters);
+	}
 	
-	parameters.svm_type = C_SVC;
-    parameters.kernel_type = RBF;
-    parameters.C = 2.8;
-    parameters.gamma = 0.0073;
-    
-    parameters.probability = 1;
-    parameters.degree = 3;
-    parameters.coef0 = 0;
-    parameters.nu = 0.5;
-    parameters.cache_size = 100;
-    parameters.eps = 1e-3;
-    parameters.p = 0.1;
-    parameters.shrinking = 1;
-    parameters.nr_weight = 0;
-    parameters.weight_label = nullptr;
-    parameters.weight = nullptr;
-
-    dbn->svm_train(samples, labels, parameters);
-    
     //5. Store the DBM and SVM file
 
-    //dbn->store("file.dat"); //Store to file
-    std::cout << "save DBN and SVM model to: "  << DBN_SVM_FILE << std::endl;
+    std::cout << "save DBN and SVM model to: "  << dbn_svm_file << std::endl;
     
-    dbn->store(DBN_SVM_FILE);
+    dbn->store(dbn_svm_file);
     
     std::cout << "Done."  << std::endl;
+}
+
+void dbn_features_libsvm() {
+	//1. Configure and create the RBM
+
+	// get #features
+	//const int nbFeatures = get_nbcolumns()-1;
+    using dbn_t = dll::dbn_desc<
+        dll::dbn_label_layers<
+            dll::rbm_desc<1323, 441, dll::batch_size<25>, dll::visible<dll::unit_type::GAUSSIAN>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+            //dll::rbm_desc<400, 100, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t,
+            //dll::rbm_desc<100, 200, dll::batch_size<50>, dll::momentum, dll::weight_decay<dll::decay_type::L2>>::rbm_t
+        >
+        //, dll::watcher<dll::opencv_dbn_visualizer> //For visualization
+        >::dbn_t;
+
+    auto dbn = std::make_unique<dbn_t>();
+    
+	// 2. load SVM and DBM model
+	
+	dbn->load(dbn_svm_file);
+	
+	
+	//3. Read dataset
+
+    std::vector<std::vector<T>> samples;     	   //All the samples
+    std::vector<std::size_t> labels;              //All the labels
+
+    read_data(data_filename, samples, labels);
+	
+	 //3.1. Get the activation probabilities for a sample
+	// output features to libsvm file
+	std::cout << "Output features to libsvm file ..."  << std::endl;
+    remove(feature_libsvmfilename);
+    std::ofstream out(feature_libsvmfilename); 
+    std::cout << "libsvm file: " << feature_libsvmfilename  << std::endl;
+    
+    for(std::size_t i = 0; i < samples.size(); ++i) {
+		auto& sample = samples[i];
+		auto  label = labels[i];
+		
+		auto probs = dbn->activation_probabilities(sample);
+		
+		// classid 1:value 2:value 3:value ...
+		out << label;
+		for (int j=0; j < 441; j++) {
+			out << ' ' << (j+1) << ':' << probs[j];
+		}
+		out << std::endl;
+	}
+	out.close();
+	
+    //for(auto& sample : samples){
+    //    auto probs = dbn->activation_probabilities(sample);
+        
+    //    for (int i=0; i < 441; i++) {
+	//		float feature = probs[i];
+	//	}
+    //}
 }
 
 void svm_predict() {
@@ -311,7 +416,7 @@ void svm_predict() {
     
 	// 2. load SVM and DBM model
 	
-	dbn->load(DBN_SVM_FILE);
+	dbn->load(dbn_svm_file);
 	
 	
 	//3. Read dataset
@@ -322,38 +427,59 @@ void svm_predict() {
     read_data(data_filename, samples, labels);
 	
 	 //3.1. Get the activation probabilities for a sample
-
-    for(auto& sample : samples){
-        auto probs = dbn->activation_probabilities(sample);
+	// output features to libsvm file
+	//std::cout << "Output features to libsvm file ..."  << std::endl;
+    //remove(feature_libsvmfilename);
+    //std::ofstream out(feature_libsvmfilename); 
+    //std::cout << "libsvm file: " << feature_libsvmfilename  << std::endl;
+    
+    //for(std::size_t i = 0; i < samples.size(); ++i) {
+	//	auto& sample = samples[i];
+	//	auto  label = labels[i];
+		
+	//	auto probs = dbn->activation_probabilities(sample);
+		
+		// classid 1:value 2:value 3:value ...
+	//	out << label;
+	//	for (int j=0; j < 441; j++) {
+	//		out << ' ' << (j+1) << ':' << probs[j];
+	//	}
+	//	out << std::endl;
+	//}
+	//out.close();
+	
+    //for(auto& sample : samples){
+    //    auto probs = dbn->activation_probabilities(sample);
         
-        for (int i=0; i < 441; i++) {
-			float feature = probs[i];
-		}
-
-        //Do something with the extracted features
-    }
+    //    for (int i=0; i < 441; i++) {
+	//		float feature = probs[i];
+	//	}
+    //}
 	
 	//4. Compute accuracy on the training set
 
-    auto training_error = dll::test_set(dbn, samples, labels, dll::svm_predictor());
+	std::cout << "Computing training error ... " << std::endl;
+	
+	auto training_error = dll::test_set(dbn, samples, labels, dll::svm_predictor());
     
     std::cout << "Training error: "  << training_error << std::endl;
 
-	int nbMisClassified = 0;
-	for(std::size_t i = 0; i < samples.size(); ++i){
-		auto& sample = samples[i];
-		auto  label = labels[i];
+	//int nbMisClassified = 0;
+	//for(std::size_t i = 0; i < samples.size(); ++i){
+	//	auto& sample = samples[i];
+	//	auto  label = labels[i];
 		
-		auto predicted = dbn->svm_predict(sample);
+	//	auto predicted = dbn->svm_predict(sample);
 		
-		if(predicted != label) {
-			 std::cout << "mis calssified: "  << i << " predicted: " << predicted << " label: " << label << std::endl;
-			 nbMisClassified++;
-		}
+	//	if(predicted != label) {
+			 //std::cout << "mis calssified: "  << i << " predicted: " << predicted << " label: " << label << std::endl;
+	//		 nbMisClassified++;
+	//	}
 		//TODO: save prediction results
-	}
+	//}
 	
-	std::cout << "#misclassified samples:" << nbMisClassified << endl;
+	//double accuracy = (samples.size() - nbMisClassified)*1.0/samples.size();
+	//std::cout << "accuracy: " << accuracy << endl;
 }
 
 void svm_classify() {
@@ -471,7 +597,7 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 		
 		std::cout << "Done. " << std::endl;
 	} else {
-		std::cout << DATA_FILE  << " does not exist." << std::endl;
+		std::cout << data_filename  << " does not exist." << std::endl;
 	}
 }
 
