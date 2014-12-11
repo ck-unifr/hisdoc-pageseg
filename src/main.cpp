@@ -17,17 +17,14 @@ using std::endl;
 
 #include <cstdio>
 
-#define PATCH_SIZE 21
-#define NB_PATCHES 2000
+using weight_t = float;
 
-typedef double T;
-#define READ_FEATURE_FORMAT ",%lf"
+#define READ_FEATURE_FORMAT ",%f"
 #define DATA_FILE "parzival_test_21_2000.dat"
 #define RBM_FILE "rbm_parzival_21_200000.dat"
 #define DBN_SVM_FILE "dbm_svm_parzival_21_200000.dat"
 
-
-void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::vector<std::size_t>& labels);
+void read_data(char* data_filename, std::vector<std::vector<weight_t>>& samples, std::vector<std::size_t>& labels);
 int get_nblines(char* filename);
 int get_nbcolumns(char* filename);
 
@@ -35,12 +32,11 @@ void rbm_features();
 void dbn_features_libsvm(std::size_t V, std::size_t H);
 void train_dbn_svm(std::size_t V, std::size_t H, int train_svm);
 
-
 void svm_predict();
 void svm_classify();
-int doesFileExist(const char *filename);
+bool doesFileExist(const char *filename);
 
-void printSamples(const std::vector<std::vector<T>> &samples, const int maxNbSamples, const int maxNbFeatures);
+void printSamples(const std::vector<std::vector<weight_t>> &samples, const int maxNbSamples, const int maxNbFeatures);
 void printLabels(const std::vector<std::size_t> &labels);
 
 char data_filename[128];
@@ -48,67 +44,52 @@ char feature_libsvmfilename[128];
 char dbn_svm_file[128];
 int  epoch = 100;
 
-int nbVisibleUnits = 1323;
-int nbHiddenUnits = 441;
 // options: 1-dbn svm training 2-dbn svm prediction
 int option = 1;
 int train_svm = 1;
-
 
 static constexpr const std::size_t Default_Visible = 1323;
 static constexpr const std::size_t Default_Hidden = 441;
 
 int main(int argc, char* argv[]) {
+    if(argc < 4) {
+        std::cout << "not enough parameters" << std::endl;
+        std::cout << "Usage: exec feature_file dbn_svm_file option [epoch [train_svm [num_hidden [num_visible]]]]" << std::endl;
+        return 1;
+    }
 
-	if(argc < 2) {
-		std::cout << "not enough parameters" << std::endl;
-		return 1;
-	}
-	
-	//parameters: "feature file" "DBN SVM model file" "option" "epoch"
-	
 	// feature file path without extension (e.g., .dat)
 	// example: parzival_test_21_2000
 	sprintf(data_filename, "%s.dat", argv[1]);
 	cout << "data file path: " << data_filename << endl;
-	
+
 	// create libsvm feature file
 	sprintf(feature_libsvmfilename, "%s_libsvm", argv[1]);
 	cout << "libsvm feature file path: " << feature_libsvmfilename << endl;
-	//sprintf(feature_libsvmfilename, "%s_%d_%d_libsvm", argv[1], PATCH_SIZE, NB_PATCHES);
-	
+
 	// DBN SVM model file
 	sprintf(dbn_svm_file, "%s", argv[2]);
 	cout << "dbn svm model file: " << dbn_svm_file << endl;
-	
-	option = atoi(argv[3]);
-	if(option == 1) {
-		cout << "DBN SVM training" << endl;
-	}
-	else {
-		if(option == 2) {
-			cout << "DBN SVM classification" << endl;
-		} 
-		else {
-			if (option == 3) {
-				cout << "output DBN features to libsvm format file" << endl;
-			}
-		}
-	}
-	
-	if(argc > 4) {
-		// get #epoch for DBN training
-		epoch = atoi(argv[4]);
-		cout << "#epoch: " << epoch << endl;
-		
-		// TODO: get #visible units and #hidden units from your input
-	}
-	
-	if(argc > 5) {
-		// train svm or not
-		train_svm = atoi(argv[5]);
-	}
-	
+
+    option = atoi(argv[3]);
+    if(option == 1) {
+        cout << "DBN SVM training" << endl;
+    } else if(option == 2) {
+        cout << "DBN SVM classification" << endl;
+    } else  if (option == 3) {
+        cout << "output DBN features to libsvm format file" << endl;
+    }
+
+    // get #epoch for DBN training
+    if(argc > 4) {
+        epoch = atoi(argv[4]);
+        cout << "#epoch: " << epoch << endl;
+    }
+
+    // train svm or not
+    if(argc > 5) {
+        train_svm = atoi(argv[5]);
+    }
 
     std::size_t num_visible = Default_Visible;
     if(argc > 6) {
@@ -119,57 +100,51 @@ int main(int argc, char* argv[]) {
     if(argc > 7) {
         num_hidden = atoi(argv[7]);
     }
-	
+
 	//Call the function you are interested in and complete it
-	
+
 	//read samples with labels
-	// std::vector<std::vector<T>> samples;
+	// std::vector<std::vector<weight_t>> samples;
 	// std::vector<std::size_t> labels;
 	// read_data(data_filenam, samples, labels);
 
 	//print data
 	//printSamples(samples, 10, 30);
 	//printLabels(labels);
-	
+
 	// train a rbm and visualize the learned features
 	//rbm_features();
-	
-	if(option == 1) {
-		// 1. train rbm with svm
-		cout << "#epoch: " << epoch << endl;
-		cout << "#visible: " << num_visible << endl;
-		cout << "#hidden: " << num_hidden << endl;
 
-		train_dbn_svm(num_visible, num_hidden, train_svm);
-	} 
-	else {
-		if(option == 2) {
-			// 2. use the trained svm for classification
-			svm_predict();
-		}
-		else {
-			if(option == 3) {
-				//3. output dbn features to libsvm format file
-				cout << "#visible: " << num_visible << endl;
-				cout << "#hidden: " << num_hidden << endl;
-		
-				dbn_features_libsvm(num_visible, num_hidden);
-			}
-		}
-	}
-	
+	if(option == 1) {
+        // 1. train rbm with svm
+        cout << "#epoch: " << epoch << endl;
+        cout << "#visible: " << num_visible << endl;
+        cout << "#hidden: " << num_hidden << endl;
+
+        train_dbn_svm(num_visible, num_hidden, train_svm);
+    } else if(option == 2) {
+        // 2. use the trained svm for classification
+        svm_predict();
+    } else if(option == 3) {
+        //3. output dbn features to libsvm format file
+        cout << "#visible: " << num_visible << endl;
+        cout << "#hidden: " << num_hidden << endl;
+
+        dbn_features_libsvm(num_visible, num_hidden);
+    }
+
 	//svm_classify();
 
     return 0;
 }
 
-int doesFileExist(const char *filename) {
+bool doesFileExist(const char *filename) {
     struct stat st;
     int result = stat(filename, &st);
     return result == 0;
 }
 
-void printSamples(const std::vector<std::vector<T>> &samples, const std::size_t maxNbSamples, const std::size_t maxNbFeatures) {
+void printSamples(const std::vector<std::vector<weight_t>> &samples, const std::size_t maxNbSamples, const std::size_t maxNbFeatures) {
 	cout << "#samples " << samples.size() << endl;
 
 	auto sampleSize = samples.size();
@@ -230,7 +205,7 @@ void rbm_features() {
 
     //2. Read dataset
 
-    std::vector<std::vector<T>> samples;     //All the samples
+    std::vector<std::vector<weight_t>> samples;     //All the samples
     std::vector<std::size_t> labels;         //All the labels
 
     read_data(data_filename, samples, labels);
@@ -268,14 +243,14 @@ void train_dbn_svm(std::size_t V, std::size_t H, int train_svm) {
 
     auto dbn = std::make_unique<dbn_t>(std::make_tuple(V, H));
 
-    dbn->layer<0>().batch_size = 24;
+    dbn->layer<0>().batch_size = 48;
 
 	//parameter tunning
     //dbn->layer<0>().learning_rate = 0.01;
 
     //2. Read dataset
 
-    std::vector<std::vector<T>> samples;     //All the samples
+    std::vector<std::vector<weight_t>> samples;     //All the samples
     std::vector<std::size_t> labels;         //All the labels
 
     read_data(data_filename, samples, labels);
@@ -322,12 +297,12 @@ void train_dbn_svm(std::size_t V, std::size_t H, int train_svm) {
 		std::cout << "SVM pretraining ..."  << std::endl;
 
 		svm_parameter parameters;
-		
+
 		parameters.svm_type = C_SVC;
 		parameters.kernel_type = RBF;
 		parameters.C = 2.8;
 		parameters.gamma = 0.0073;
-		
+
 		parameters.probability = 1;
 		parameters.degree = 3;
 		parameters.coef0 = 0;
@@ -342,13 +317,13 @@ void train_dbn_svm(std::size_t V, std::size_t H, int train_svm) {
 
 		dbn->svm_train(samples, labels, parameters);
 	}
-	
+
     //5. Store the DBM and SVM file
 
     std::cout << "save DBN and SVM model to: "  << dbn_svm_file << std::endl;
-    
+
     dbn->store(dbn_svm_file);
-    
+
     std::cout << "Done."  << std::endl;
 }
 
@@ -384,12 +359,12 @@ void dbn_features_libsvm(std::size_t V, std::size_t H) {
     // auto dbn = std::make_unique<dbn_t>();
 
 	// 2. load SVM and DBM model
-	
+
 	dbn->load(dbn_svm_file);
 
     //3. Read dataset
 
-    std::vector<std::vector<T>> samples;     //All the samples
+    std::vector<std::vector<weight_t>> samples;     //All the samples
     std::vector<std::size_t> labels;         //All the labels
 
     read_data(data_filename, samples, labels);
@@ -399,15 +374,15 @@ void dbn_features_libsvm(std::size_t V, std::size_t H) {
 	// output features to libsvm file
 	std::cout << "Output features to libsvm file ..."  << std::endl;
     remove(feature_libsvmfilename);
-    std::ofstream out(feature_libsvmfilename); 
+    std::ofstream out(feature_libsvmfilename);
     std::cout << "libsvm file: " << feature_libsvmfilename  << std::endl;
-    
+
     for(std::size_t i = 0; i < samples.size(); ++i) {
 		auto& sample = samples[i];
 		auto  label = labels[i];
-		
+
 		auto probs = dbn->activation_probabilities(sample);
-		
+
 		// classid 1:value 2:value 3:value ...
 		out << label;
 		 for (std::size_t j=0; j < probs.size(); j++) {
@@ -415,10 +390,10 @@ void dbn_features_libsvm(std::size_t V, std::size_t H) {
 		}
 	}
 	out.close();
-	
+
     //for(auto& sample : samples){
     //    auto probs = dbn->activation_probabilities(sample);
-        
+
     //    for (int i=0; i < 441; i++) {
 	//		float feature = probs[i];
 	//	}
@@ -441,32 +416,32 @@ void svm_predict() {
         >::dbn_t;
 
     auto dbn = std::make_unique<dbn_t>();
-    
+
 	// 2. load SVM and DBM model
-	
+
 	dbn->load(dbn_svm_file);
-	
-	
+
+
 	//3. Read dataset
 
-    std::vector<std::vector<T>> samples;     	   //All the samples
+    std::vector<std::vector<weight_t>> samples;   //All the samples
     std::vector<std::size_t> labels;              //All the labels
 
     read_data(data_filename, samples, labels);
-	
+
 	 //3.1. Get the activation probabilities for a sample
 	// output features to libsvm file
 	//std::cout << "Output features to libsvm file ..."  << std::endl;
     //remove(feature_libsvmfilename);
-    //std::ofstream out(feature_libsvmfilename); 
+    //std::ofstream out(feature_libsvmfilename);
     //std::cout << "libsvm file: " << feature_libsvmfilename  << std::endl;
-    
+
     //for(std::size_t i = 0; i < samples.size(); ++i) {
 	//	auto& sample = samples[i];
 	//	auto  label = labels[i];
-		
+
 	//	auto probs = dbn->activation_probabilities(sample);
-		
+
 		// classid 1:value 2:value 3:value ...
 	//	out << label;
 	//	for (int j=0; j < 441; j++) {
@@ -475,37 +450,37 @@ void svm_predict() {
 	//	out << std::endl;
 	//}
 	//out.close();
-	
+
     //for(auto& sample : samples){
     //    auto probs = dbn->activation_probabilities(sample);
-        
+
     //    for (int i=0; i < 441; i++) {
 	//		float feature = probs[i];
 	//	}
     //}
-	
+
 	//4. Compute accuracy on the training set
 
 	std::cout << "Computing training error ... " << std::endl;
-	
+
 	auto training_error = dll::test_set(dbn, samples, labels, dll::svm_predictor());
-    
+
     std::cout << "Training error: "  << training_error << std::endl;
 
 	//int nbMisClassified = 0;
 	//for(std::size_t i = 0; i < samples.size(); ++i){
 	//	auto& sample = samples[i];
 	//	auto  label = labels[i];
-		
+
 	//	auto predicted = dbn->svm_predict(sample);
-		
+
 	//	if(predicted != label) {
 			 //std::cout << "mis calssified: "  << i << " predicted: " << predicted << " label: " << label << std::endl;
 	//		 nbMisClassified++;
 	//	}
 		//TODO: save prediction results
 	//}
-	
+
 	//double accuracy = (samples.size() - nbMisClassified)*1.0/samples.size();
 	//std::cout << "accuracy: " << accuracy << endl;
 
@@ -552,7 +527,7 @@ void svm_classify() {
 
     //2. Read dataset
 
-    std::vector<std::vector<T>> samples;     //All the samples
+    std::vector<std::vector<weight_t>> samples;     //All the samples
     std::vector<std::size_t> labels;              //All the labels
 
     read_data(data_filename, samples, labels);
@@ -594,11 +569,8 @@ void svm_classify() {
  * file format:
  * class_id, feature value_1, feature value_2, feature value_3, ..., feature value_n
  */
-void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::vector<std::size_t>& labels) {
-
-	//if(access(DATA_FILE, F_OK) != 1){
+void read_data(char* data_filename, std::vector<std::vector<weight_t>>& samples, std::vector<std::size_t>& labels) {
 	if (doesFileExist(data_filename)){
-
 		std::cout << "reading " << data_filename  << " ..." << std::endl;
 
 		//Open file
@@ -615,16 +587,15 @@ void read_data(char* data_filename, std::vector<std::vector<T>>& samples, std::v
 
 		//read samples
 		for (int l=0; l < nb_lines; l++) {
-
 			// read class id
 			std::size_t classNum = 0;
 			fscanf(asc, "%lu", &classNum);
 			labels.push_back(classNum);
 
 			// read features
-			std::vector<T> col;
+			std::vector<weight_t> col;
 			for (int col_num=0; col_num < nb_columns-1; col_num++) {
-				T lf = -1;
+				weight_t lf = -1;
 				fscanf(asc, READ_FEATURE_FORMAT, &lf);
 				col.push_back(lf);
 			}
